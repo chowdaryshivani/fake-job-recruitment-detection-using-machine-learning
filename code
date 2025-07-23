@@ -1,0 +1,69 @@
+data_preprocessing.py
+python
+Copy
+Edit
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+import re
+import string
+
+def clean_text(text):
+    text = str(text).lower()
+    text = re.sub(f"[{re.escape(string.punctuation)}]", "", text)
+    text = re.sub(r"\d+", "", text)
+    return text
+
+def preprocess_data(file_path):
+    df = pd.read_csv(file_path)
+    df = df[['title', 'location', 'description', 'requirements', 'fraudulent']]
+    df.fillna("", inplace=True)
+    df['combined_text'] = df['title'] + " " + df['location'] + " " + df['description'] + " " + df['requirements']
+    df['cleaned_text'] = df['combined_text'].apply(clean_text)
+
+    tfidf = TfidfVectorizer(stop_words='english', max_features=3000)
+    X = tfidf.fit_transform(df['cleaned_text'])
+    y = df['fraudulent']
+    
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    return X_train, X_test, y_train, y_test, tfidf
+ model_training.py
+python
+Copy
+Edit
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, accuracy_score
+from data_preprocessing import preprocess_data
+
+def train_model():
+    X_train, X_test, y_train, y_test, vectorizer = preprocess_data("sample_data.csv")
+    model = RandomForestClassifier(n_estimators=100, random_state=42)
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    print("Accuracy:", accuracy_score(y_test, y_pred))
+    print("Classification Report:\n", classification_report(y_test, y_pred))
+    return model, vectorizer
+
+if __name__ == "__main__":
+    train_model()
+ prediction.py
+python
+Copy
+Edit
+from data_preprocessing import clean_text
+import joblib
+
+def predict_job_posting(model, vectorizer, job_data):
+    cleaned = clean_text(job_data)
+    vector = vectorizer.transform([cleaned])
+    prediction = model.predict(vector)
+    return "Fake" if prediction[0] == 1 else "Real"
+ sample_data.csv (create this file with the following content)
+cs
+Copy
+Edit
+title,location,description,requirements,fraudulent
+Software Engineer,New York,"Develop software","Python, Teamwork",0
+Data Entry Clerk,Remote,"Earn money fast!!!","No skills required",1
+HR Manager,Boston,"Manage HR tasks","Experience in HR",0
+Online Survey Agent,Remote,"Make $500/day!","None",1
